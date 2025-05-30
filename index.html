@@ -24,6 +24,7 @@
     <div id="productList"></div>
     <h3>カート</h3>
     <ul id="cartList"></ul>
+    <button onclick="resetCart()">カートをリセット</button>
     <p>税抜き金額: <span id="subtotal">0</span> 円</p>
     <p>消費税: <span id="tax">0</span> 円</p>
     <p><strong>税込み金額: <span id="total">0</span> 円</strong></p>
@@ -97,20 +98,44 @@
       const cartList = document.getElementById('cartList');
       cartList.innerHTML = '';
       let subtotal = 0;
+      let discount = 0;
 
       Object.values(cart).forEach(item => {
         const li = document.createElement('li');
-        li.textContent = `${item.name} x${item.count}（${item.price}円）`;
+
+        li.innerHTML = `${item.name} x${item.count}（${item.price}円） `;
+
+        const minusBtn = document.createElement('button');
+        minusBtn.textContent = '−';
+        minusBtn.onclick = () => {
+          item.count--;
+          if (item.count <= 0) {
+            delete cart[item.name];
+          }
+          updateCart();
+        };
+
+        li.appendChild(minusBtn);
         cartList.appendChild(li);
-        subtotal += item.price * item.count;
+
+        if (item.price >= 0) {
+          subtotal += item.price * item.count;
+        } else {
+          discount += item.price * item.count; // マイナス価格は税込みに反映
+        }
       });
 
       const tax = (selectedMode === 'counter') ? Math.floor(subtotal * 0.1) : 0;
-      const total = subtotal + tax;
+      const total = subtotal + tax + discount;
 
       document.getElementById('subtotal').textContent = subtotal;
       document.getElementById('tax').textContent = tax;
       document.getElementById('total').textContent = total;
+    }
+
+    function resetCart() {
+      cart = {};
+      updateCart();
     }
 
     window.onload = () => {
