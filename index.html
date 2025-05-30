@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.png">
+  <meta name="theme-color" content="#ffffff">
   <title>スマホレジ</title>
   <style>
     body { font-family: sans-serif; padding: 1rem; }
@@ -49,6 +52,9 @@
     function switchPage() {
       document.getElementById('page1').classList.toggle('hidden');
       document.getElementById('page2').classList.toggle('hidden');
+      if (!document.getElementById('page1').classList.contains('hidden')) {
+        loadProducts(); // ← これを追加！
+      }
     }
 
     function selectMode(mode) {
@@ -141,6 +147,13 @@
     window.onload = () => {
       loadProducts();
     };
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then(reg => console.log("SW registered", reg))
+        .catch(err => console.log("SW registration failed", err));
+    }
   </script>
 </body>
 </html>
