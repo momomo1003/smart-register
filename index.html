@@ -86,16 +86,33 @@
       productList.innerHTML = '';
       const products = JSON.parse(localStorage.getItem(productsKey) || '[]');
 
-      products.forEach(product => {
+      products.forEach((product, index) => {
         const div = document.createElement('div');
         div.className = 'product';
-        div.textContent = `${product.name} - ${product.price} 円`;
-        div.onclick = () => {
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = `${product.name} - ${product.price} 円`;
+        nameSpan.style.cursor = 'pointer';
+        nameSpan.onclick = () => {
           const key = product.name;
           if (!cart[key]) cart[key] = { ...product, count: 0 };
           cart[key].count++;
           updateCart();
         };
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '削除';
+        deleteBtn.style.marginLeft = '1rem';
+        deleteBtn.onclick = () => {
+          if (confirm(`「${product.name}」を削除しますか？`)) {
+            products.splice(index, 1);
+            localStorage.setItem(productsKey, JSON.stringify(products));
+            loadProducts();
+          }
+        };
+
+        div.appendChild(nameSpan);
+        div.appendChild(deleteBtn);
         productList.appendChild(div);
       });
     }
