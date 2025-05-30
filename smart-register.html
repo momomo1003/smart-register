@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>スマホレジ</title>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; }
+    .hidden { display: none; }
+    button { margin: 0.25rem; padding: 0.5rem 1rem; font-size: 1rem; }
+    .product { border: 1px solid #ccc; padding: 0.5rem; margin: 0.5rem 0; }
+    .product span { margin-left: 0.5rem; }
+  </style>
+</head>
+<body>
+  <!-- Page 1: 業態選択とレジ -->
+  <div id="page1">
+    <h2>業態選択</h2>
+    <button onclick="selectMode('counter')">カウンター（10%消費税）</button>
+    <button onclick="selectMode('bar')">バー（消費税なし）</button>
+    <hr>
+    <div id="modeDisplay"></div>
+    <h2>商品一覧（タップして追加）</h2>
+    <div id="productList"></div>
+    <h3>カート</h3>
+    <ul id="cartList"></ul>
+    <p>税抜き金額: <span id="subtotal">0</span> 円</p>
+    <p>消費税: <span id="tax">0</span> 円</p>
+    <p><strong>税込み金額: <span id="total">0</span> 円</strong></p>
+    <hr>
+    <button onclick="switchPage()">商品登録ページへ</button>
+  </div>
+
+  <!-- Page 2: 商品登録 -->
+  <div id="page2" class="hidden">
+    <h2>商品登録</h2>
+    <input type="text" id="nameInput" placeholder="商品名">
+    <input type="number" id="priceInput" placeholder="価格（例: 300 or -100）">
+    <button onclick="addProduct()">商品を登録</button>
+    <p><button onclick="switchPage()">戻る</button></p>
+  </div>
+
+  <script>
+    const productsKey = 'products';
+    let selectedMode = null;
+    let cart = {};
+
+    function switchPage() {
+      document.getElementById('page1').classList.toggle('hidden');
+      document.getElementById('page2').classList.toggle('hidden');
+    }
+
+    function selectMode(mode) {
+      selectedMode = mode;
+      document.getElementById('modeDisplay').textContent =
+        mode === 'counter' ? '現在の業態：カウンター（10%消費税）' : '現在の業態：バー（消費税なし）';
+      updateCart();
+    }
+
+    function addProduct() {
+      const name = document.getElementById('nameInput').value.trim();
+      const price = parseFloat(document.getElementById('priceInput').value);
+      if (!name || isNaN(price)) {
+        alert("正しい商品名と価格を入力してください");
+        return;
+      }
+
+      const products = JSON.parse(localStorage.getItem(productsKey) || '[]');
+      products.push({ name, price });
+      localStorage.setItem(productsKey, JSON.stringify(products));
+      alert("商品を登録しました");
+      document.getElementById('nameInput').value = '';
+      document.getElementById('priceInput').value = '';
+      loadProducts();
+    }
+
+    function loadProducts() {
+      const productList = document.getElementById('productList');
+      productList.innerHTML = '';
+      const products = JSON.parse(localStorage.getItem(productsKey) || '[]');
+
+      products.forEach(product => {
+        const div = document.createElement('div');
+        div.className = 'product';
+        div.textContent = `${product.name} - ${product.price} 円`;
+        div.onclick = () => {
+          const key = product.name;
+          if (!cart[key]) cart[key] = { ...product, count: 0 };
+          cart[key].count++;
+          updateCart();
+        };
+        productList.appendChild(div);
+      });
+    }
+
+    function updateCart() {
+      const cartList = document.getElementById('cartList');
+      cartList.innerHTML = '';
+      let subtotal = 0;
+
+      Object.values(cart).forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = `${item.name} x${item.count}（${item.price}円）`;
+        cartList.appendChild(li);
+        subtotal += item.price * item.count;
+      });
+
+      const tax = (selectedMode === 'counter') ? Math.floor(subtotal * 0.1) : 0;
+      const total = subtotal + tax;
+
+      document.getElementById('subtotal').textContent = subtotal;
+      document.getElementById('tax').textContent = tax;
+      document.getElementById('total').textContent = total;
+    }
+
+    window.onload = () => {
+      loadProducts();
+    };
+  </script>
+</body>
+</html>
