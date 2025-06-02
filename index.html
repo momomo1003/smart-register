@@ -65,6 +65,26 @@
       request.onerror = () => alert("DBオープンに失敗しました");
     }
 
+
+    async function requestPersistentStorage() {
+     if (navigator.storage && navigator.storage.persist) {
+       const isPersisted = await navigator.storage.persisted();
+       if (isPersisted) {
+          console.log("すでに永続ストレージが許可されています");
+       } else {
+         const granted = await navigator.storage.persist();
+         if (granted) {
+           console.log("永続ストレージが新たに許可されました");
+         } else {
+           console.warn("永続ストレージの許可が得られませんでした");
+         }
+       }
+     } else {
+       console.warn("このブラウザは永続ストレージAPIをサポートしていません");
+     }
+    }
+
+    
     function addProduct() {
       const name = document.getElementById('nameInput').value.trim();
       const price = parseFloat(document.getElementById('priceInput').value);
