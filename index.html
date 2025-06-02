@@ -3,10 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icon.png">
-  <meta name="theme-color" content="#ffffff">
-  <title>スマホレジ</title>
+  <title>スマホレジ（IndexedDB対応）</title>
   <style>
     body { font-family: sans-serif; padding: 1rem; }
     .hidden { display: none; }
@@ -16,7 +13,6 @@
   </style>
 </head>
 <body>
-  <!-- Page 1: 業態選択とレジ -->
   <div id="page1">
     <h2>業態選択</h2>
     <button onclick="selectMode('counter')">カウンター（10%消費税）</button>
@@ -35,7 +31,6 @@
     <button onclick="switchPage()">商品登録ページへ</button>
   </div>
 
-  <!-- Page 2: 商品登録 -->
   <div id="page2" class="hidden">
     <h2>商品登録</h2>
     <input type="text" id="nameInput" placeholder="商品名">
@@ -45,23 +40,29 @@
   </div>
 
   <script>
-    const productsKey = 'products';
-    let selectedMode = null;
+    let db;
     let cart = {};
+    let selectedMode = null;
 
-    function switchPage() {
-      document.getElementById('page1').classList.toggle('hidden');
-      document.getElementById('page2').classList.toggle('hidden');
-      if (!document.getElementById('page1').classList.contains('hidden')) {
-        loadProducts(); // ← これを追加！
-      }
-    }
+    const dbName = "ProductDB";
+    const storeName = "products";
 
-    function selectMode(mode) {
-      selectedMode = mode;
-      document.getElementById('modeDisplay').textContent =
-        mode === 'counter' ? '現在の業態：カウンター（10%消費税）' : '現在の業態：バー（消費税なし）';
-      updateCart();
+    function openDB(callback) {
+      const request = indexedDB.open(dbName, 1);
+
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName, { keyPath: 'name' });
+        }
+      };
+
+      request.onsuccess = (event) => {
+        db = event.target.result;
+        callback();
+      };
+
+      request.onerror = () => alert("DBオープンに失敗しました");
     }
 
     function addProduct() {
@@ -72,49 +73,57 @@
         return;
       }
 
-      const products = JSON.parse(localStorage.getItem(productsKey) || '[]');
-      products.push({ name, price });
-      localStorage.setItem(productsKey, JSON.stringify(products));
-      alert("商品を登録しました");
-      document.getElementById('nameInput').value = '';
-      document.getElementById('priceInput').value = '';
-      loadProducts();
+      const tx = db.transaction(storeName, "readwrite");
+      const store = tx.objectStore(storeName);
+      store.put({ name, price });
+      tx.oncomplete = () => {
+        alert("商品を登録しました");
+        document.getElementById('nameInput').value = '';
+        document.getElementById('priceInput').value = '';
+        loadProducts();
+      };
     }
 
     function loadProducts() {
       const productList = document.getElementById('productList');
       productList.innerHTML = '';
-      const products = JSON.parse(localStorage.getItem(productsKey) || '[]');
+      const tx = db.transaction(storeName, "readonly");
+      const store = tx.objectStore(storeName);
+      const request = store.getAll();
 
-      products.forEach((product, index) => {
-        const div = document.createElement('div');
-        div.className = 'product';
+      request.onsuccess = () => {
+        const products = request.result;
+        products.forEach(product => {
+          const div = document.createElement('div');
+          div.className = 'product';
 
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = `${product.name} - ${product.price} 円`;
-        nameSpan.style.cursor = 'pointer';
-        nameSpan.onclick = () => {
-          const key = product.name;
-          if (!cart[key]) cart[key] = { ...product, count: 0 };
-          cart[key].count++;
-          updateCart();
-        };
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = `${product.name} - ${product.price} 円`;
+          nameSpan.style.cursor = 'pointer';
+          nameSpan.onclick = () => {
+            const key = product.name;
+            if (!cart[key]) cart[key] = { ...product, count: 0 };
+            cart[key].count++;
+            updateCart();
+          };
 
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = '削除';
-        deleteBtn.style.marginLeft = '1rem';
-        deleteBtn.onclick = () => {
-          if (confirm(`「${product.name}」を削除しますか？`)) {
-            products.splice(index, 1);
-            localStorage.setItem(productsKey, JSON.stringify(products));
-            loadProducts();
-          }
-        };
+          const deleteBtn = document.createElement('button');
+          deleteBtn.textContent = '削除';
+          deleteBtn.style.marginLeft = '1rem';
+          deleteBtn.onclick = () => {
+            if (confirm(`「${product.name}」を削除しますか？`)) {
+              const delTx = db.transaction(storeName, "readwrite");
+              const delStore = delTx.objectStore(storeName);
+              delStore.delete(product.name);
+              delTx.oncomplete = () => loadProducts();
+            }
+          };
 
-        div.appendChild(nameSpan);
-        div.appendChild(deleteBtn);
-        productList.appendChild(div);
-      });
+          div.appendChild(nameSpan);
+          div.appendChild(deleteBtn);
+          productList.appendChild(div);
+        });
+      };
     }
 
     function updateCart() {
@@ -125,16 +134,13 @@
 
       Object.values(cart).forEach(item => {
         const li = document.createElement('li');
-
         li.innerHTML = `${item.name} x${item.count}（${item.price}円） `;
 
         const minusBtn = document.createElement('button');
         minusBtn.textContent = '−';
         minusBtn.onclick = () => {
           item.count--;
-          if (item.count <= 0) {
-            delete cart[item.name];
-          }
+          if (item.count <= 0) delete cart[item.name];
           updateCart();
         };
 
@@ -144,7 +150,7 @@
         if (item.price >= 0) {
           subtotal += item.price * item.count;
         } else {
-          discount += item.price * item.count; // マイナス価格は税込みに反映
+          discount += item.price * item.count;
         }
       });
 
@@ -161,16 +167,24 @@
       updateCart();
     }
 
-    window.onload = () => {
-      loadProducts();
-    };
-  </script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./service-worker.js')
-        .then(reg => console.log("SW registered", reg))
-        .catch(err => console.log("SW registration failed", err));
+    function switchPage() {
+      document.getElementById('page1').classList.toggle('hidden');
+      document.getElementById('page2').classList.toggle('hidden');
+      if (!document.getElementById('page1').classList.contains('hidden')) {
+        loadProducts();
+      }
     }
+
+    function selectMode(mode) {
+      selectedMode = mode;
+      document.getElementById('modeDisplay').textContent =
+        mode === 'counter' ? '現在の業態：カウンター（10%消費税）' : '現在の業態：バー（消費税なし）';
+      updateCart();
+    }
+
+    window.onload = () => {
+      openDB(loadProducts);
+    };
   </script>
 </body>
 </html>
