@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.png">
+  <meta name="theme-color" content="#ffffff">
   <title>スマホレジ（IndexedDB対応）</title>
   <style>
     body { font-family: sans-serif; padding: 1rem; }
@@ -205,6 +208,13 @@
     window.onload = () => {
       openDB(loadProducts);
     };
+  </script>
+  <script>
+   if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then(reg => console.log("SW registered", reg))
+        .catch(err => console.log("SW registration failed", err));
+   }
   </script>
 </body>
 </html>
